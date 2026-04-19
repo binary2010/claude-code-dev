@@ -1,6 +1,26 @@
 #!/usr/bin/env bun
 import { feature } from 'bun:bundle'
+import { realpathSync } from 'fs'
+import { resolve } from 'path'
 import { isEnvTruthy } from '../utils/envUtils.js'
+
+function restoreCallerWorkingDirectory(): void {
+  const callerDir = process.env.CALLER_DIR?.trim()
+  if (!callerDir) return
+
+  try {
+    const physicalCallerDir = realpathSync(resolve(callerDir))
+    process.chdir(physicalCallerDir)
+    process.env.CALLER_DIR = physicalCallerDir
+  } catch {
+    // Best-effort fallback for the dev wrapper: if the caller directory no
+    // longer exists, continue from the repo root instead of crashing at import time.
+  }
+}
+
+// Restore the shell's original cwd before any bootstrap state reads process.cwd().
+// eslint-disable-next-line custom-rules/no-top-level-side-effects
+restoreCallerWorkingDirectory()
 
 // Runtime fallback for MACRO.* when not injected by build/dev defines.
 // This happens when running cli.tsx directly (not via `bun run dev` or built dist/).
